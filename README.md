@@ -13,8 +13,6 @@ python main.py
 ```
 
 ```markdown
-# 项目名称（例如：55MOD 项目）
-
 ## 项目目录结构
 - jiaojiao/  # 根目录
   - control/  # 按键模板图
