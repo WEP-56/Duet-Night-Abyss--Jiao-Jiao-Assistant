@@ -12,30 +12,32 @@ powershell
 python main.py
 ```
 
-# 项目目录结构
-```plaintext```
-55MOD/
-├── venv/                     # 虚拟环境目录
-├── control/                  # 控键模板图
-├── json/                     # 移动序列文件目录
-│   ├── 55mod/
-│   ├── juesemihan/
-│   └── wuqimihan/
-├── logic/                    # 各模式循环逻辑
-│   ├── 55mod.py
-│   ├── juesemihan.py
-│   └── wuqimihan.py
-├── map/                      # 地图资源目录
-│   ├── 55mod/
-│   ├── juesemihan/
-│   └── wuqimihan/
-├── app.log                   # 应用日志文件
-├── config.json               # 全局配置文件
-├── jsontest.py               # JSON测试脚本
-├── main.py                   # 主程序入口
-├── recorder.py               # 记录器模块
-├── test.py                   # 测试脚本1
-└── test2.py                  # 测试脚本2
+```markdown
+# 项目名称（例如：55MOD 项目）
+
+## 项目目录结构
+- 55MOD/  # 根目录
+  - venv/  # 虚拟环境目录
+  - control/  # 按键模板图
+    - json/  # 移动序列文件目录
+      - 55mod/
+      - juesemihan/
+      - wuqimihan/
+  - logic/  # 各模式循环逻辑
+    - 55mod.py
+    - juesemihan.py
+    - wuqimihan.py
+  - map/  # 地图资源目录
+    - 55mod/
+    - juesemihan/
+    - wuqimihan/
+  - app.log  # 应用日志文件
+  - config.json  # 全局配置文件
+  - jsontest.py  # JSON测试脚本
+  - main.py  # 主程序入口
+  - recorder.py  # 记录器模块
+  - test.py  # 测试脚本1
+  - test2.py  # 测试脚本2
 ```
 
 # 功能说明
