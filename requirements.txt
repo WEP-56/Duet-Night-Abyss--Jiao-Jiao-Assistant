@@ -1,0 +1,7 @@
+psutil>=5.9.0
+keyboard>=0.13.5
+opencv-python>=4.9.0.80
+Pillow>=10.0.0
+numpy>=1.26.0
+pywin32>=306
+mouse>=0.7.1
