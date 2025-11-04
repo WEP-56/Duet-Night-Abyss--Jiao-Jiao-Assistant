@@ -1,0 +1,59 @@
+{
+  "name": "mapC",
+  "steps": [
+    {
+      "type": "key",
+      "key": "w",
+      "hold": 1.973,
+      "delay": 0.0
+    },
+    {
+      "type": "key",
+      "key": "a",
+      "hold": 0.315,
+      "delay": 0.659
+    },
+    {
+      "type": "key",
+      "key": "w",
+      "hold": 2.834,
+      "delay": 3.33
+    },
+    {
+      "type": "key",
+      "key": "a",
+      "hold": 1.68,
+      "delay": 2.175
+    },
+    {
+      "type": "key",
+      "key": "d",
+      "hold": 3.082,
+      "delay": 3.548
+    },
+    {
+      "type": "key",
+      "key": "a",
+      "hold": 3.278,
+      "delay": 3.736
+    },
+    {
+      "type": "key",
+      "key": "d",
+      "hold": 2.438,
+      "delay": 2.685
+    },
+    {
+      "type": "key",
+      "key": "a",
+      "hold": 2.775,
+      "delay": 3.09
+    },
+    {
+      "type": "key",
+      "key": "d",
+      "hold": 1.387,
+      "delay": 2.107
+    }
+  ]
+}

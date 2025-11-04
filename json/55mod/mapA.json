@@ -1,0 +1,59 @@
+{
+  "name": "mapA",
+  "steps": [
+    {
+      "type": "key",
+      "key": "w",
+      "hold": 5.82,
+      "delay": 0.0
+    },
+    {
+      "type": "key",
+      "key": "a",
+      "hold": 1.199,
+      "delay": 1.201
+    },
+    {
+      "type": "key",
+      "key": "d",
+      "hold": 1.29,
+      "delay": 1.582
+    },
+    {
+      "type": "key",
+      "key": "a",
+      "hold": 1.282,
+      "delay": 1.485
+    },
+    {
+      "type": "key",
+      "key": "d",
+      "hold": 1.417,
+      "delay": 1.613
+    },
+    {
+      "type": "key",
+      "key": "a",
+      "hold": 1.17,
+      "delay": 1.245
+    },
+    {
+      "type": "key",
+      "key": "d",
+      "hold": 1.238,
+      "delay": 1.343
+    },
+    {
+      "type": "key",
+      "key": "a",
+      "hold": 1.365,
+      "delay": 1.47
+    },
+    {
+      "type": "key",
+      "key": "d",
+      "hold": 0.48,
+      "delay": 0.615
+    }
+  ]
+}
