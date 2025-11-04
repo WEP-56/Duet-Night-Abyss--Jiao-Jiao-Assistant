@@ -16,8 +16,7 @@ python main.py
 # 项目名称（例如：55MOD 项目）
 
 ## 项目目录结构
-- 55MOD/  # 根目录
-  - venv/  # 虚拟环境目录
+- jiaojiao/  # 根目录
   - control/  # 按键模板图
     - json/  # 移动序列文件目录
       - 55mod/
