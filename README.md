@@ -30,13 +30,12 @@ python main.py
     - 55mod/
     - juesemihan/
     - wuqimihan/
-  - app.log  # 应用日志文件
-  - config.json  # 全局配置文件
-  - jsontest.py  # JSON测试脚本
+  - config.json  # 用户设置保存文件
+  - jsontest.py  # JSON操作序列测试用
   - main.py  # 主程序入口
-  - recorder.py  # 记录器模块
-  - test.py  # 测试脚本1
-  - test2.py  # 测试脚本2
+  - recorder.py  # 操作录制器
+  - test.py  # 非焦点窗口截图测试脚本
+  - test2.py  # 非焦点窗口输入操作测试脚本
 ```
 
 # 功能说明
@@ -44,6 +43,14 @@ python main.py
 当前已实现功能：
 55 夜航模式挂机
 驱离武器密函模式挂机
+
+# 可能遇到的问题
+Q:地图，按键等识别失败
+A:由于每个设备的分辨率等不同，若脚本一直无法识别按键和地图，你可能需要更换./map和./control的特征图，请检查游戏内设置：设定16：9，1920x1080，清晰度中或高。PC设备设置：缩放100%
+Q：脚本运行后无反应
+A：请使用管理员模式开启
+Q：不是以上问题，就是运行不了
+A：请描述问题，发送日志并标明来意至：1484413790@qq.com
 
 # ToDo
 扩展更多游戏内模式支持
