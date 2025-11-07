@@ -15,8 +15,9 @@ import win32ui
 import win32api
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 import importlib
+import ttkbootstrap as ttk
 
 
 # ------------------------------
@@ -365,12 +366,27 @@ class App:
         self.post_likai_delay = 1.3         # 进入地图后延迟秒
         self.max_loops = 0                  # 循环次数（0=不限）
         self.auto_stop_seconds = 0          # 定时关闭（秒，0=禁用）
+        self.theme_name = 'cosmo'           # 窗口主题：白天cosmo/黑夜darkly
         self.started_at = None
         self.loops_done = 0
         self.auto_stop_timer = None
 
         # Try load persisted config
         self._load_config()
+        # Apply ttk theme early (no UI rebuild) so initial widgets use correct palette
+        try:
+            if hasattr(self.root, 'style') and self.root.style:
+                self.root.style.theme_use(self.theme_name)
+            else:
+                from ttkbootstrap import Style  # type: ignore
+                st = Style(theme=self.theme_name)
+                # attach to root for later use
+                try:
+                    self.root.style = st
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
         # expose action player to logic modules
         self.play_actions = play_actions
@@ -388,81 +404,221 @@ class App:
         self._bind_hotkeys()
         self.refresh_windows()
 
+    # Helpers: theme-based colors
+    def _get_page_bg(self):
+        try:
+            if str(self.theme_name).lower() in ('darkly', 'cyborg', 'superhero', 'solar', 'vapor'):
+                return '#1c1f24'
+        except Exception:
+            pass
+        return '#f2f4f7'
+
+    # Helpers: rounded card UI
+    def _create_card(self, parent, title: str, padding=10, radius=20):
+        dark = str(self.theme_name).lower() in ('darkly', 'cyborg', 'superhero', 'solar', 'vapor')
+        bg = self._get_page_bg()
+        if dark:
+            card_fill = '#2b2f33'
+            stroke = '#3a3f45'
+            shadow_layers = [('#23282d', 1), ('#20252a', 2), ('#1e2328', 3)]
+        else:
+            card_fill = '#ffffff'
+            stroke = '#e6e9ef'
+            shadow_layers = [('#eef2f8', 1), ('#e8edf6', 2), ('#e3e9f2', 3)]
+        container = tk.Frame(parent, bg=bg, highlightthickness=0)
+        container.grid_propagate(False)
+        # canvas for rounded background
+        cv = tk.Canvas(container, bg=bg, highlightthickness=0, bd=0)
+        cv.pack(fill='both', expand=True)
+        inner = ttk.Frame(cv, padding=padding)
+        # inner uses grid manager exclusively
+        inner.columnconfigure(0, weight=1)
+        # header
+        if title:
+            ttk.Label(inner, text=title).grid(row=0, column=0, sticky='w', pady=(0,6))
+        # content frame for caller widgets (return this)
+        content = ttk.Frame(inner)
+        content.grid(row=1, column=0, sticky='nsew')
+        inner.rowconfigure(1, weight=1)
+
+        # place inner as canvas window
+        win_id = cv.create_window(0, 0, window=inner, anchor='nw')
+
+        def _redraw(_evt=None):
+            try:
+                w = max(40, container.winfo_width())
+                h = max(40, container.winfo_height())
+                cv.config(width=w, height=h)
+                cv.delete('card')
+                cv.delete('shadow')
+                cv.delete('stroke')
+                r = radius
+                x1, y1, x2, y2 = 2, 2, w-2, h-2
+                # layered soft shadow (down-right)
+                for col, off in shadow_layers:
+                    sx1, sy1, sx2, sy2 = x1+off, y1+off, x2+off, y2+off
+                    cv.create_arc(sx1, sy1, sx1+2*r, sy1+2*r, start=90, extent=90, style='pieslice', fill=col, outline='', tags='shadow')
+                    cv.create_arc(sx2-2*r, sy1, sx2, sy1+2*r, start=0, extent=90, style='pieslice', fill=col, outline='', tags='shadow')
+                    cv.create_arc(sx1, sy2-2*r, sx1+2*r, sy2, start=180, extent=90, style='pieslice', fill=col, outline='', tags='shadow')
+                    cv.create_arc(sx2-2*r, sy2-2*r, sx2, sy2, start=270, extent=90, style='pieslice', fill=col, outline='', tags='shadow')
+                    cv.create_rectangle(sx1+r, sy1, sx2-r, sy2, fill=col, outline='', tags='shadow')
+                    cv.create_rectangle(sx1, sy1+r, sx2, sy2-r, fill=col, outline='', tags='shadow')
+
+                # draw rounded rect via four arcs + rects (card body)
+                cv.create_arc(x1, y1, x1+2*r, y1+2*r, start=90, extent=90, style='pieslice', fill=card_fill, outline='', tags='card')
+                cv.create_arc(x2-2*r, y1, x2, y1+2*r, start=0, extent=90, style='pieslice', fill=card_fill, outline='', tags='card')
+                cv.create_arc(x1, y2-2*r, x1+2*r, y2, start=180, extent=90, style='pieslice', fill=card_fill, outline='', tags='card')
+                cv.create_arc(x2-2*r, y2-2*r, x2, y2, start=270, extent=90, style='pieslice', fill=card_fill, outline='', tags='card')
+                cv.create_rectangle(x1+r, y1, x2-r, y2, fill=card_fill, outline='', tags='card')
+                cv.create_rectangle(x1, y1+r, x2, y2-r, fill=card_fill, outline='', tags='card')
+                # stroke: rounded border (arcs + edges)
+                cv.create_arc(x1, y1, x1+2*r, y1+2*r, start=90, extent=90, style='arc', outline=stroke, width=1, tags='stroke')
+                cv.create_arc(x2-2*r, y1, x2, y1+2*r, start=0, extent=90, style='arc', outline=stroke, width=1, tags='stroke')
+                cv.create_arc(x1, y2-2*r, x1+2*r, y2, start=180, extent=90, style='arc', outline=stroke, width=1, tags='stroke')
+                cv.create_arc(x2-2*r, y2-2*r, x2, y2, start=270, extent=90, style='arc', outline=stroke, width=1, tags='stroke')
+                cv.create_line(x1+r, y1, x2-r, y1, fill=stroke, width=1, tags='stroke')
+                cv.create_line(x1+r, y2, x2-r, y2, fill=stroke, width=1, tags='stroke')
+                cv.create_line(x1, y1+r, x1, y2-r, fill=stroke, width=1, tags='stroke')
+                cv.create_line(x2, y1+r, x2, y2-r, fill=stroke, width=1, tags='stroke')
+                # place inner with padding inset
+                cv.coords(win_id, x1+8, y1+8)
+                cv.itemconfigure(win_id, width=max(20, w-16), height=max(20, h-16))
+            except Exception:
+                pass
+
+        container.bind('<Configure>', _redraw)
+        return container, content
+
     # UI
     def _build_ui(self):
-        wrapper = ttk.Frame(self.root, padding=10)
+        # light gray background to enhance card depth
+        wrapper = ttk.Frame(self.root, padding=12)
         wrapper.pack(fill='both', expand=True)
 
-        title = ttk.Label(wrapper, text='牛马皎皎后台挂机1.0', font=('Microsoft YaHei', 16, 'bold'))
-        title.pack(anchor='center', pady=(0, 4))
+        # top bar title
+        title = ttk.Label(wrapper, text='皎皎助手后台挂机1.0', font=('Microsoft YaHei', 16, 'bold'))
+        title.pack(anchor='w', pady=(0, 8))
+        # Settings button at top-right
+        ttk.Button(wrapper, text='设置', command=self._open_settings).place(relx=1.0, x=-12, y=10, anchor='ne')
 
-        tip = ttk.Label(
-            wrapper,
-            text='进入对应副本列表，点击前往进入确认选择界面再开启脚本\n若脚本完全无法运行请尝试刷新窗口，或记录终端信息至邮箱1484413790@qq.com\n 此脚本完全免费，如果您是购买获得请申请退款！！',
-            font=('Microsoft YaHei', 9)
-        )
-        tip.pack(anchor='center', pady=(0, 10))
+        # three columns container
+        # outer page background tweak
+        try:
+            wrapper.configure(style='')
+            wrapper['bootstyle'] = ''
+        except Exception:
+            pass
 
-        # Controls row (imitate download layout visually simple)
-        controls_frame = ttk.Frame(wrapper)
-        controls_frame.pack(fill='x', pady=(0, 8))
+        # use tk.Frame to control background color for better contrast
+        cols = tk.Frame(wrapper, bg=self._get_page_bg())
+        cols.pack(fill='both', expand=True)
+        # make middle narrower, right wider; allow row to expand
+        cols.columnconfigure(0, weight=1, uniform='col')
+        cols.columnconfigure(1, weight=1, uniform='col')
+        cols.columnconfigure(2, weight=2, uniform='col')
+        cols.rowconfigure(0, weight=1)
 
-        self.btn_start = ttk.Button(controls_frame, text='开始 (F10)', command=self.on_start)
-        self.btn_start.pack(side='left', padx=5)
+        # Left sidebar: rounded card
+        left_card, left = self._create_card(cols, '任务列表', padding=10)
+        left_card.grid(row=0, column=0, sticky='nsew', padx=(0, 8))
+        left.rowconfigure(0, weight=1)
 
-        self.btn_stop = ttk.Button(controls_frame, text='停止 (F12)', command=self.on_stop)
-        self.btn_stop.pack(side='left', padx=5)
+        # task check list
+        task_frame = ttk.Frame(left)
+        task_frame.grid(row=0, column=0, sticky='nsew')
+        self.mode_var = tk.StringVar(value='')
+        self.task_vars = {}
+        self.tasks_map = {
+            '55mod': self.mode_name_map.get('55mod', '55mod'),
+            'juesemihan': self.mode_name_map.get('juesemihan', 'juesemihan'),
+            'wuqimihan': self.mode_name_map.get('wuqimihan', 'wuqimihan'),
+        }
+        def _mk_chk(key):
+            v = tk.BooleanVar(value=(key == '55mod'))
+            self.task_vars[key] = v
+            def _cb():
+                self._on_task_toggle(key)
+            ttk.Checkbutton(task_frame, text=self.tasks_map[key], variable=v, command=_cb).pack(anchor='w', pady=2)
+        for k in ['55mod', 'juesemihan', 'wuqimihan']:
+            _mk_chk(k)
+        # default select 55mod
+        self.mode_var.set(self.mode_name_map.get('55mod', '55mod'))
 
-        self.btn_refresh = ttk.Button(controls_frame, text='刷新窗口 (F9)', command=self.refresh_windows)
-        self.btn_refresh.pack(side='left', padx=5)
+        # bottom controls in left
+        left_bottom = ttk.Frame(left)
+        left_bottom.grid(row=1, column=0, sticky='ew', pady=(8,0))
+        left_bottom.columnconfigure(0, weight=1)
+        left_bottom.columnconfigure(1, weight=1)
+        self.btn_start = ttk.Button(left_bottom, text='开始任务 (F10)', command=self.on_start, bootstyle='primary')
+        self.btn_start.grid(row=0, column=0, sticky='ew', padx=(0,4))
+        self.btn_stop = ttk.Button(left_bottom, text='停止 (F12)', command=self.on_stop)
+        self.btn_stop.grid(row=0, column=1, sticky='ew', padx=(4,0))
 
-        self.btn_settings = ttk.Button(controls_frame, text='设置', command=self._open_settings)
-        self.btn_settings.pack(side='left', padx=5)
+        # Middle: task settings card
+        mid_card, mid = self._create_card(cols, '任务设置', padding=10)
+        mid_card.grid(row=0, column=1, sticky='nsew', padx=8)
 
-        # Mode selection
-        row_mode = ttk.Frame(wrapper)
-        row_mode.pack(fill='x', pady=4)
-        ttk.Label(row_mode, text='模式:').pack(side='left')
-        self.mode_var = tk.StringVar(value='夜航55')
-        self.combo_mode = ttk.Combobox(row_mode, state='readonly', width=30, textvariable=self.mode_var)
-        self.combo_mode.pack(side='left', padx=6)
-        ttk.Button(row_mode, text='刷新模式', command=self._refresh_modes).pack(side='left', padx=4)
-
-        # 武器密函选择
-        row_mihan = ttk.Frame(wrapper)
-        row_mihan.pack(fill='x', pady=4)
-        ttk.Label(row_mihan, text='武器密函选择:').pack(side='left')
+        # 武器密函
+        row_m = ttk.Frame(mid)
+        row_m.pack(fill='x', pady=4)
+        ttk.Label(row_m, text='武器密函选择').pack(side='left')
         self.wuqi_mihan_var = tk.StringVar(value='')
-        self.combo_wuqi_mihan = ttk.Combobox(row_mihan, state='readonly', width=30, textvariable=self.wuqi_mihan_var)
+        self.combo_wuqi_mihan = ttk.Combobox(row_m, state='readonly', width=30, textvariable=self.wuqi_mihan_var)
         self.combo_wuqi_mihan.pack(side='left', padx=6)
-        ttk.Button(row_mihan, text='刷新密函', command=self._refresh_wuqi_mihan).pack(side='left', padx=4)
+        ttk.Button(row_m, text='刷新密函', command=self._refresh_wuqi_mihan).pack(side='left')
 
-        # Window selection
-        row2 = ttk.Frame(wrapper)
-        row2.pack(fill='x', pady=4)
+        row_j = ttk.Frame(mid)
+        row_j.pack(fill='x', pady=4)
+        ttk.Label(row_j, text='角色密函选择').pack(side='left')
+        self.juese_mihan_var = tk.StringVar(value='')
+        self.combo_juese_mihan = ttk.Combobox(row_j, state='readonly', width=30, textvariable=self.juese_mihan_var)
+        self.combo_juese_mihan.pack(side='left', padx=6)
+        ttk.Button(row_j, text='刷新密函', command=self._refresh_juese_mihan).pack(side='left')
 
-        ttk.Label(row2, text='自动关键字:').pack(side='left')
-        ent = ttk.Entry(row2, textvariable=self.auto_keyword, width=20)
-        ent.pack(side='left', padx=4)
+        # 温馨提示（小卡片）
+        tip_card, tip_box = self._create_card(mid, '温馨提示', padding=8, radius=10)
+        tip_card.pack(fill='x', pady=(10,0))
+        ttk.Label(tip_box, text='进入对应副本列表，点击前往进入确认选择界面\n再开启脚本\n在运行前您需要确保：\n1.pc设置为100%缩放\n2.游戏窗口设置为16：9，1920x1080\n3.使用管理员权限运行脚本\n5.不要更改文件结构，若要替换模板图片请按原\n名命名！\n6.若无论如何无法运行脚本，请描述设备情况并\n复制日志发给1484413790@qq.com').pack(anchor='w')
 
-        ttk.Label(row2, text='窗口:').pack(side='left')
-        self.combo = ttk.Combobox(row2, state='readonly', width=50)
+        # Right: connection + logs card
+        right_card, right = self._create_card(cols, '连接 / 日志', padding=10)
+        right_card.grid(row=0, column=2, sticky='nsew', padx=(8,0))
+        right.rowconfigure(3, weight=1)
+
+        # refresh and window selector
+        row_conn = ttk.Frame(right)
+        row_conn.grid(row=0, column=0, sticky='ew')
+        self.btn_refresh = ttk.Button(row_conn, text='刷新窗口 (F9)', command=self.refresh_windows)
+        self.btn_refresh.pack(side='left')
+        ttk.Label(row_conn, text='当前窗口').pack(side='left', padx=(10,4))
+        self.combo = ttk.Combobox(row_conn, state='readonly', width=40)
         self.combo.pack(side='left', padx=4, fill='x', expand=True)
         self.combo.bind('<<ComboboxSelected>>', self.on_combo_select)
 
-        # Log box
-        self.log = tk.Text(wrapper, height=18)
-        self.log.pack(fill='both', expand=True)
+        # 日志标题 + 清空按钮
+        row_log_title = ttk.Frame(right)
+        row_log_title.grid(row=2, column=0, sticky='ew', pady=(8,0))
+        ttk.Label(row_log_title, text='日志').pack(side='left')
+        ttk.Button(row_log_title, text='⟳', width=3, command=self.clear_log).pack(side='right')
+
+        # Log box (read-only)
+        self.log = tk.Text(right, height=18, state='disabled')
+        self.log.grid(row=3, column=0, sticky='nsew', pady=(4,0))
+
+        # hidden mode combobox kept for compatibility with _refresh_modes
+        self.combo_mode = ttk.Combobox(wrapper, state='readonly', textvariable=self.mode_var)
+        self.combo_mode.place_forget()
 
         # Status bar
         status_frame = ttk.Frame(wrapper)
-        status_frame.pack(fill='x')
+        status_frame.pack(fill='x', pady=(8,0))
         self.status_var = tk.StringVar(value='状态: 就绪')
         ttk.Label(status_frame, textvariable=self.status_var, anchor='w').pack(side='left', fill='x', expand=True)
 
-        # init modes
+        # init modes and lists
         self._refresh_modes()
         self._refresh_wuqi_mihan()
+        self._refresh_juese_mihan()
 
     def _bind_hotkeys(self):
         # Local Tk bindings (also support global with keyboard if installed)
@@ -471,6 +627,36 @@ class App:
             keyboard.add_hotkey('f10', self.on_start)
             keyboard.add_hotkey('f12', self.on_stop)
             keyboard.add_hotkey('f9', self.refresh_windows)
+        except Exception:
+            pass
+
+    # Left task list single-select behavior
+    def _on_task_toggle(self, selected_key: str):
+        try:
+            # uncheck others
+            for k, var in self.task_vars.items():
+                if k != selected_key:
+                    var.set(False)
+            # ensure selected set to True
+            self.task_vars[selected_key].set(True)
+            # sync mode_var to display label once modes are built
+            display = self.mode_key_to_display.get(selected_key, self.tasks_map.get(selected_key, selected_key))
+            self.mode_var.set(display)
+        except Exception:
+            pass
+
+    def clear_log(self):
+        try:
+            self.log.configure(state='normal')
+            self.log.delete('1.0', 'end')
+            self.log.configure(state='disabled')
+        except Exception:
+            pass
+        # also truncate log file quietly
+        try:
+            if os.path.isfile(self.log_file_path):
+                with open(self.log_file_path, 'w', encoding='utf-8') as _f:
+                    _f.write('')
         except Exception:
             pass
 
@@ -537,6 +723,32 @@ class App:
         if not name:
             return None
         return os.path.join(self.control_dir, '武器密函png', f"{name}.png")
+
+    def _refresh_juese_mihan(self):
+        try:
+            folder = os.path.join(self.control_dir, '角色密函png')
+            names = []
+            if os.path.isdir(folder):
+                for fn in os.listdir(folder):
+                    if fn.lower().endswith('.png'):
+                        names.append(os.path.splitext(fn)[0])
+            names.sort()
+            self.combo_juese_mihan['values'] = names
+            if names:
+                cur = self.juese_mihan_var.get()
+                if cur not in names:
+                    self.juese_mihan_var.set(names[0])
+            else:
+                self.juese_mihan_var.set('')
+            self._log(f"已刷新角色密函列表: {', '.join(names) if names else '无'}")
+        except Exception as e:
+            self._log(f"刷新角色密函失败: {e}")
+
+    def get_selected_juese_mihan_path(self):
+        name = (self.juese_mihan_var.get() or '').strip()
+        if not name:
+            return None
+        return os.path.join(self.control_dir, '角色密函png', f"{name}.png")
 
     # Helpers for logic modules
     def detect_template_abs(self, template_abs_path, threshold=None):
@@ -652,8 +864,10 @@ class App:
 
     def _append_log_line_ui(self, line):
         try:
+            self.log.configure(state='normal')
             self.log.insert('end', line)
             self.log.see('end')
+            self.log.configure(state='disabled')
         except Exception:
             pass
 
@@ -695,6 +909,7 @@ class App:
                 self.post_likai_delay = float(cfg.get('post_likai_delay', self.post_likai_delay))
                 self.max_loops = int(cfg.get('max_loops', self.max_loops))
                 self.auto_stop_seconds = int(cfg.get('auto_stop_seconds', self.auto_stop_seconds))
+                self.theme_name = str(cfg.get('theme', self.theme_name))
                 # Clamp after load
                 self._clamp_settings()
                 self._log('已加载本地配置文件。')
@@ -708,6 +923,7 @@ class App:
                 'post_likai_delay': self.post_likai_delay,
                 'max_loops': self.max_loops,
                 'auto_stop_seconds': self.auto_stop_seconds,
+                'theme': self.theme_name,
             }
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 json.dump(cfg, f, ensure_ascii=False, indent=2)
@@ -764,6 +980,7 @@ class App:
         self.var_post_delay = tk.DoubleVar(value=self.post_likai_delay)
         self.var_max_loops = tk.IntVar(value=self.max_loops)
         self.var_auto_stop = tk.IntVar(value=self.auto_stop_seconds)
+        self.var_theme = tk.StringVar(value=self.theme_name)
 
         # Row: checkbox fail random
         chk = ttk.Checkbutton(frm, text='识图失败时随机选择脚本继续', variable=self.var_fail_random)
@@ -793,6 +1010,14 @@ class App:
         ent_auto.pack(side='left', padx=6)
         ttk.Label(row3, text='秒 (0为关闭)').pack(side='left')
 
+        # Card: 窗口模式（主题）
+        lf_theme = ttk.Labelframe(frm, text='窗口模式', padding=8)
+        lf_theme.pack(fill='x', pady=(8,4))
+        rb_row = ttk.Frame(lf_theme)
+        rb_row.pack(anchor='w')
+        ttk.Radiobutton(rb_row, text='白天模式', value='cosmo', variable=self.var_theme).pack(side='left', padx=(0,12))
+        ttk.Radiobutton(rb_row, text='黑夜模式', value='darkly', variable=self.var_theme).pack(side='left')
+
         # Buttons
         btns = ttk.Frame(frm)
         btns.pack(fill='x', pady=(10,0))
@@ -803,8 +1028,12 @@ class App:
                 self.post_likai_delay = float(self.var_post_delay.get())
                 self.max_loops = int(self.var_max_loops.get())
                 self.auto_stop_seconds = int(self.var_auto_stop.get())
+                # theme
+                self.theme_name = str(self.var_theme.get() or self.theme_name)
                 self._clamp_settings()
                 self._log(f"已应用设置: 随机脚本={self.fail_fallback_random}, 延迟={self.post_likai_delay}s, 循环次数={self.max_loops}, 定时关闭={self.auto_stop_seconds}s")
+                # apply theme now
+                self._apply_theme(self.theme_name)
                 self._save_config()
             except Exception as e:
                 self._log(f"应用设置失败: {e}")
@@ -813,6 +1042,28 @@ class App:
             except Exception:
                 pass
         ttk.Button(btns, text='保存', command=_apply_and_close).pack(side='right')
+
+    def _apply_theme(self, theme_name: str):
+        try:
+            # ttkbootstrap Window has style accessible
+            if hasattr(self.root, 'style') and self.root.style:
+                self.root.style.theme_use(theme_name)
+            else:
+                # fallback: create a temporary Style
+                from ttkbootstrap import Style  # type: ignore
+                st = Style()
+                st.theme_use(theme_name)
+            # Rebuild UI so custom canvas-based cards use the new palette
+            try:
+                for ch in self.root.winfo_children():
+                    ch.destroy()
+            except Exception:
+                pass
+            self._build_ui()
+            self._bind_hotkeys()
+            self.refresh_windows()
+        except Exception as e:
+            self._log(f"切换主题失败: {e}")
 
     def on_combo_select(self, _evt=None):
         idx = self.combo.current()
@@ -841,11 +1092,11 @@ class App:
             return
         # quick env check
         try:
-            self._log(f"[自检] base_dir={self.base_dir}")
-            self._log(f"[自检] control={self.control_dir} 存在={os.path.isdir(self.control_dir)}")
-            for fn in ['xuanzemihan.png','bushiyong.png','querenxuanze.png','likai.png','zaicijinixng.png']:
+            self._log(f"🔧 [自检] base_dir={self.base_dir}")
+            self._log(f"📁 [自检] control={self.control_dir} 存在={os.path.isdir(self.control_dir)}")
+            for fn in ['xuanzemihan.png', 'bushiyong.png', 'querenxuanze.png', 'likai.png', 'zaicijinixng.png']:
                 p = os.path.join(self.control_dir, fn)
-                self._log(f"[自检] 模板 {fn}: {'存在' if os.path.isfile(p) else '缺失'} | {p}")
+                self._log(f"🖼️ [自检] 模板 {fn}: {'存在' if os.path.isfile(p) else '缺失'} | {p}")
         except Exception:
             pass
         # resolve selected mode and switch working dirs
@@ -864,12 +1115,12 @@ class App:
             json_exists = os.path.isdir(self.json_dir)
             map_cnt = len([f for f in os.listdir(self.map_dir) if f.lower().endswith('.png')]) if map_exists else 0
             json_cnt = len([f for f in os.listdir(self.json_dir) if f.lower().endswith('.json')]) if json_exists else 0
-            self._log(f"[自检] 模式={mode} map_dir={self.map_dir} 存在={map_exists} png数={map_cnt}")
-            self._log(f"[自检] 模式={mode} json_dir={self.json_dir} 存在={json_exists} json数={json_cnt}")
+            self._log(f"📊 [自检] 模式={mode} map_dir={self.map_dir} 存在={map_exists} png数={map_cnt}")
+            self._log(f"📊 [自检] 模式={mode} json_dir={self.json_dir} 存在={json_exists} json数={json_cnt}")
             if map_cnt == 0:
-                self._log("[警告] 该模式的地图模板目录为空，请将 png 放入 map/" + mode)
+                self._log("⚠️ [警告] 该模式的地图模板目录为空，请将 png 放入 map/" + mode)
             if json_cnt == 0:
-                self._log("[警告] 该模式的脚本目录为空，请将 json 放入 json/" + mode)
+                self._log("⚠️ [警告] 该模式的脚本目录为空，请将 json 放入 json/" + mode)
         except Exception:
             pass
         self.running = True
@@ -877,7 +1128,7 @@ class App:
         # pass selected mode to runner
         self.worker = threading.Thread(target=self._run_mode_loop, args=(mode,), daemon=True)
         self.worker.start()
-        self._log('开始运行脚本')
+        self._log('🚀 开始运行脚本')
         # Start status updater
         try:
             self._schedule_status_update()
@@ -907,7 +1158,7 @@ class App:
             return
         self.running = False
         self.stop_event.set()
-        self._log('请求停止，等待当前步骤结束...')
+        self._log('⏹️ 请求停止，等待当前步骤结束...')
         try:
             if self.auto_stop_timer and self.auto_stop_timer.is_alive():
                 self.auto_stop_timer.cancel()
@@ -923,33 +1174,33 @@ class App:
                 sys.path.insert(0, self.base_dir)
             mod = importlib.import_module(f'logic.{mode_name}')
         except Exception as e:
-            self._log(f'加载模式失败: {mode_name} ({e})')
+            self._log(f'❌ 加载模式失败: {mode_name} ({e})')
             self.running = False
             return
         ensure_restored(self.selected_hwnd)
-        self._log(f'已启动模式: {mode_name}')
+        self._log(f'▶️ 已启动模式: {mode_name}')
         try:
             if hasattr(mod, 'run'):
                 mod.run(self)
             else:
-                self._log(f'模式 {mode_name} 不包含 run(app)')
+                self._log(f'⚠️ 模式 {mode_name} 不包含 run(app)')
         except Exception as e:
-            self._log(f'模式运行异常: {e}')
+            self._log(f'⚠️ 模式运行异常: {e}')
         finally:
-            self._log('脚本已停止。')
+            self._log('🛑 脚本已停止。')
 
     def _wait_and_click(self, template_filename, name_alias, timeout=None):
         if timeout is None:
             timeout = self.timeout_seconds
         deadline = time.time() + timeout
         tpl_path = os.path.join(self.control_dir, template_filename)
-        self._log(f"等待 {name_alias}_button，超时{timeout:.0f}s …")
+        self._log(f"⏳ 等待 {name_alias}_button，超时{timeout:.0f}s …")
         while self.running and not self.stop_event.is_set() and time.time() < deadline:
             img = self.capturer.capture_background()
             m = match_template(img, tpl_path, self.threshold)
             if m:
                 cx, cy = m['center']
-                self._log(f"识别到 {name_alias}_button (score={m['score']:.2f})，点击中心: ({cx},{cy})")
+                self._log(f"🔍 识别到 {name_alias}_button (score={m['score']:.2f})，点击中心: ({cx},{cy})")
                 # Convert to client coordinates for SendMessage
                 win_left, win_top, _, _ = win32gui.GetWindowRect(self.selected_hwnd)
                 client_pt = win32gui.ScreenToClient(self.selected_hwnd, (win_left + cx, win_top + cy))
@@ -980,7 +1231,7 @@ class App:
             while waited < self.retry_interval and self.running and not self.stop_event.is_set():
                 time.sleep(step)
                 waited += step
-        self._log(f"等待 {name_alias}_button 超时，已停止。")
+        self._log(f"⏰ 等待 {name_alias}_button 超时，已停止。")
         self.running = False
         return False
 
@@ -993,14 +1244,14 @@ class App:
             img = self.capturer.capture_background()
             m = match_template(img, tpl_path, self.threshold)
             if m:
-                self._log(f"检测到 {name_alias} (score={m['score']:.2f})")
+                self._log(f"🔍 检测到 {name_alias} (score={m['score']:.2f})")
                 return True
             waited = 0.0
             step = 0.05
             while waited < self.retry_interval and self.running and not self.stop_event.is_set():
                 time.sleep(step)
                 waited += step
-        self._log(f"等待 {name_alias} 超时，已停止。")
+        self._log(f"⏰ 等待 {name_alias} 超时，已停止。")
         self.running = False
         return False
 
@@ -1010,13 +1261,13 @@ class App:
         """
         deadline = time.time() + (timeout or 0)
         tpl_path = os.path.join(self.control_dir, template_filename)
-        self._log(f"尝试点击 {name_alias}_button（可选），超时{timeout:.1f}s …")
+        self._log(f"🖱️ 尝试点击 {name_alias}_button（可选），超时{timeout:.1f}s …")
         while self.running and not self.stop_event.is_set() and time.time() < deadline:
             img = self.capturer.capture_background()
             m = match_template(img, tpl_path, self.threshold)
             if m:
                 cx, cy = m['center']
-                self._log(f"识别到 {name_alias}_button (score={m['score']:.2f})，点击中心: ({cx},{cy})")
+                self._log(f"🔍 识别到 {name_alias}_button (score={m['score']:.2f})，点击中心: ({cx},{cy})")
                 win_left, win_top, _, _ = win32gui.GetWindowRect(self.selected_hwnd)
                 tx, ty = win32gui.ScreenToClient(self.selected_hwnd, (win_left + cx, win_top + cy))
                 target = child_from_client_point(self.selected_hwnd, tx, ty)
@@ -1065,7 +1316,7 @@ class App:
             if best is not None:
                 score, m, alias, path = best
                 cx, cy = m['center']
-                self._log(f"识别到 {alias}_button (score={score:.2f})，点击中心: ({cx},{cy})")
+                self._log(f"🔍 识别到 {alias}_button (score={score:.2f})，点击中心: ({cx},{cy})")
                 win_left, win_top, _, _ = win32gui.GetWindowRect(self.selected_hwnd)
                 tx, ty = win32gui.ScreenToClient(self.selected_hwnd, (win_left + cx, win_top + cy))
                 target = child_from_client_point(self.selected_hwnd, tx, ty)
@@ -1163,32 +1414,22 @@ class App:
             s1 = _score_for(p1) if p1 else 0.0
             s2 = _score_for(p2) if p2 else 0.0
             s3 = _score_for(p3) if p3 else 0.0
-            hits = int((s1 or 0.0) >= self.feature_presence_thr) + \
-                   int((s2 or 0.0) >= self.feature_presence_thr) + \
-                   int((s3 or 0.0) >= self.feature_presence_thr)
             total = (s1 or 0.0) + (s2 or 0.0) + (s3 or 0.0)
-            mx = max((s1 or 0.0), (s2 or 0.0), (s3 or 0.0))
-            candidates.append((base_name, hits, total, mx, (s1 if p1 else -1.0), (s2 if p2 else -1.0), (s3 if p3 else -1.0)))
+            candidates.append((base_name, total, (s1 if p1 else -1.0), (s2 if p2 else -1.0), (s3 if p3 else -1.0)))
         if not candidates:
             return None
-        candidates.sort(key=lambda x: (x[1], x[2], x[3]), reverse=True)
-        def _fmt(n, hits, total, mx, s1, s2, s3):
-            parts = [f"hits={hits}", f"sum={total:.2f}", f"max={mx:.2f}"]
+        # sort by total score only
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        def _fmt(n, total, s1, s2, s3):
             feat_parts = [f"base={s1:.2f}" if s1 >= 0 else "base=-",
                           f"feat2={s2:.2f}" if s2 >= 0 else "feat2=-",
                           f"feat3={s3:.2f}" if s3 >= 0 else "feat3=-"]
-            return f"{n}:" + ",".join(parts) + " (" + ",".join(feat_parts) + ")"
-        top3 = ', '.join([_fmt(n, h, t, m, s1, s2, s3) for (n, h, t, m, s1, s2, s3) in candidates[:3]])
+            return f"{n}: sum={total:.2f} (" + ",".join(feat_parts) + ")"
+        top3 = ', '.join([_fmt(n, t, s1, s2, s3) for (n, t, s1, s2, s3) in candidates[:3]])
         self._log(f"地图匹配Top3: {top3}")
-        top1_name, top1_hits, top1_total, top1_max, *_ = candidates[0]
-        if top1_max >= self.quick_accept_thr and top1_hits >= 1:
-            self._log(f"地图识别为 {top1_name} (quick_accept,max={top1_max:.2f},hits={top1_hits})")
-            return top1_name
-        if top1_hits >= self.min_hits:
-            self._log(f"地图识别为 {top1_name} (hits={top1_hits}, sum={top1_total:.2f})")
-            return top1_name
-        self._log(f"地图匹配不确定 (top1_hits={top1_hits}, top1_max={top1_max:.2f})")
-        return None
+        top1_name, top1_total, *_ = candidates[0]
+        self._log(f"地图识别为 {top1_name} (sum={top1_total:.2f})")
+        return top1_name
 
     def _load_actions(self, map_name):
         def _resolve_json_path(name):
@@ -1260,9 +1501,16 @@ class App:
 
 
 def main():
-    root = tk.Tk()
+    root = ttk.Window(themename='cosmo')
     app = App(root)
-    root.geometry('820x520')
+    # Larger initial size; lock as minimum so users can only enlarge
+    initial_w, initial_h = 1280, 760
+    root.geometry(f'{initial_w}x{initial_h}')
+    try:
+        root.update_idletasks()
+        root.minsize(initial_w, initial_h)
+    except Exception:
+        pass
     root.mainloop()
 
 
