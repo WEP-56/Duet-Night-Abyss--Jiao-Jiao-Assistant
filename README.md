@@ -6,7 +6,7 @@
 
 上述问题已解决，通过CHELItest.py中的find_deepest_child_at_screen_point方法，使用win32gui.ChildWindowFromPointEx遍历最深子控键，就可以找到“撤离”与“再次挑战”的真实位置并输入信号，可喜可贺！！
 
-
+![脚本窗口示例图片](Guiexample.png)
 # 环境准备
 ```powershell
 # 安装所需依赖库
