@@ -15,7 +15,10 @@ python main.py
 
 # 使用pyinstaller打包脚本主程序
 pip install pyinstaller
-py -m PyInstaller "C:\Users\chinese\Desktop\55MOD\mainGuiRe.py" -F -w --name "55MOD" --collect-submodules logic --collect-data ttkbootstrap --distpath "C:\Users\chinese\Desktop\55MOD\dist" --workpath "C:\Users\chinese\Desktop\55MOD\build" --specpath "C:\Users\chinese\Desktop\55MOD"
+python -m PyInstaller "ur dir\JiaoJiao\mainGuiRe.py" -F -w --name "name" --collect-submodules logic --collect-data ttkbootstrap --distpath "ur dir\JiaoJiao\dist" --workpath "ur dir\JiaoJiao\build" --specpath "ur dir\JiaoJiao"
+
+# 使用pyinstaller打包操作录制器
+python -m PyInstaller "ur dir\JiaoJiao\recorder.py" -F -w
 ```
 
 ```markdown
@@ -40,6 +43,7 @@ py -m PyInstaller "C:\Users\chinese\Desktop\55MOD\mainGuiRe.py" -F -w --name "55
   - recorder.py  # 操作录制器
   - test.py  # 非焦点窗口截图测试脚本
   - test2.py  # 非焦点窗口输入操作测试脚本
+  - .....
 ```
 
 # 功能说明
