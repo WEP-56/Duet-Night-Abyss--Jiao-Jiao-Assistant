@@ -5,12 +5,17 @@ import time
 import threading
 from datetime import datetime
 
-import win32gui
+try:
+    import win32gui  # type: ignore
+except Exception:
+    win32gui = None
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 
 
 def enumerate_windows():
+    if not win32gui:
+        return []
     wins = []
     def _enum_cb(h, _):
         if win32gui.IsWindowVisible(h) and win32gui.GetWindowText(h):
@@ -69,11 +74,15 @@ class RecorderApp:
         self.root = root
         self.root.title('操作录制器 - 50扼守')
         self.base_dir = self._compute_base_dir()
-        self.map_dir = os.path.join(self.base_dir, 'map')
+        self.map_dir = self._resolve_map_dir()
         self.json_dir = os.path.join(self.base_dir, 'json')
 
         self.selected_hwnd = None
         self.selected_map = tk.StringVar(value='mapA')
+        self.selected_map_path = None
+        self.selected_map_disp = tk.StringVar(value='')
+        self.selected_save_path = None
+        self.selected_save_disp = tk.StringVar(value='')
 
         self.is_recording = False
         self.is_cancelling = False
@@ -96,6 +105,20 @@ class RecorderApp:
         except Exception:
             return os.getcwd()
 
+    def _resolve_map_dir(self):
+        # Prefer the known absolute path if it exists, otherwise fall back to the default next to the app
+        candidates = [
+            r'C:\Users\chinese\Desktop\55MOD\map',
+            os.path.join(self.base_dir, 'map'),
+        ]
+        for p in candidates:
+            try:
+                if os.path.isdir(p):
+                    return p
+            except Exception:
+                pass
+        return os.path.join(self.base_dir, 'map')
+
     def _build_ui(self):
         frame = ttk.Frame(self.root, padding=10)
         frame.pack(fill='both', expand=True)
@@ -113,7 +136,17 @@ class RecorderApp:
         ttk.Label(row2, text='地图模板:').pack(side='left')
         self.combo_map = ttk.Combobox(row2, state='readonly', width=20, textvariable=self.selected_map)
         self.combo_map.pack(side='left', padx=6)
+        ttk.Button(row2, text='选择模板图片...', command=self.select_map_image).pack(side='left', padx=4)
+        self.entry_map = ttk.Entry(row2, state='readonly', textvariable=self.selected_map_disp, width=42)
+        self.entry_map.pack(side='left', padx=6, fill='x', expand=True)
         ttk.Button(row2, text='刷新地图', command=self.refresh_maps).pack(side='left', padx=4)
+
+        row2b = ttk.Frame(frame)
+        row2b.pack(fill='x', pady=4)
+        ttk.Label(row2b, text='保存路径:').pack(side='left')
+        ttk.Button(row2b, text='选择保存位置...', command=self.select_save_path).pack(side='left', padx=6)
+        self.entry_save = ttk.Entry(row2b, state='readonly', textvariable=self.selected_save_disp)
+        self.entry_save.pack(side='left', padx=6, fill='x', expand=True)
 
         row3 = ttk.Frame(frame)
         row3.pack(fill='x', pady=8)
@@ -131,11 +164,16 @@ class RecorderApp:
 
         self.log = tk.Text(frame, height=16)
         self.log.pack(fill='both', expand=True)
+        self.log.configure(state='disabled')
 
     def _log(self, msg):
         ts = datetime.now().strftime('%H:%M:%S')
-        self.log.insert('end', f'[{ts}] {msg}\n')
-        self.log.see('end')
+        try:
+            self.log.configure(state='normal')
+            self.log.insert('end', f'[{ts}] {msg}\n')
+            self.log.see('end')
+        finally:
+            self.log.configure(state='disabled')
 
     def _bind_hotkeys(self):
         try:
@@ -155,6 +193,8 @@ class RecorderApp:
             self.combo_win.current(0)
             self.on_sel_window()
         self._log('已刷新窗口列表')
+        if not items and (win32gui is None):
+            self._log('未安装 pywin32，窗口列表不可用')
 
     def on_sel_window(self, _evt=None):
         idx = self.combo_win.current()
@@ -177,6 +217,61 @@ class RecorderApp:
             self._log(f'地图目录不存在: {self.map_dir}，请将 map 文件夹放在与 exe 同目录')
         except Exception as e:
             self._log(f'读取地图目录失败: {e}')
+
+    def select_map_image(self):
+        try:
+            initial = self.map_dir if os.path.isdir(self.map_dir) else self.base_dir
+        except Exception:
+            initial = None
+        try:
+            path = filedialog.askopenfilename(
+                title='选择模板图片',
+                initialdir=initial,
+                filetypes=[('PNG 图片', '*.png'), ('所有文件', '*.*')]
+            )
+        except Exception:
+            path = ''
+        if not path:
+            return
+        try:
+            name = os.path.splitext(os.path.basename(path))[0]
+            self.selected_map.set(name)
+            self.selected_map_path = path
+            try:
+                disp = os.path.relpath(path, self.map_dir)
+            except Exception:
+                disp = os.path.basename(path)
+            self.selected_map_disp.set(disp)
+            self._log(f'已选择模板图片: {path}')
+        except Exception as e:
+            self._log(f'选择模板失败: {e}')
+
+    def select_save_path(self):
+        try:
+            map_name = (self.selected_map.get() or '').strip()
+            initialdir = self.json_dir if os.path.isdir(self.json_dir) else self.base_dir
+            initialfile = f"{map_name}.json" if map_name else ""
+        except Exception:
+            initialdir = None
+            initialfile = ""
+        try:
+            path = filedialog.asksaveasfilename(
+                title='选择保存位置',
+                initialdir=initialdir,
+                initialfile=initialfile,
+                defaultextension='.json',
+                filetypes=[('JSON 文件', '*.json'), ('所有文件', '*.*')]
+            )
+        except Exception:
+            path = ''
+        if not path:
+            return
+        try:
+            self.selected_save_path = path
+            self.selected_save_disp.set(path)
+            self._log(f'已选择保存位置: {path}')
+        except Exception as e:
+            self._log(f'选择保存位置失败: {e}')
 
     # Recording
     def start_record(self):
@@ -204,8 +299,27 @@ class RecorderApp:
         if not map_name:
             messagebox.showwarning('提示', '请选择地图模板')
             return
-        os.makedirs(self.json_dir, exist_ok=True)
-        out_path = os.path.join(self.json_dir, f'{map_name}.json')
+        out_path = self.selected_save_path
+        if not out_path:
+            try:
+                os.makedirs(self.json_dir, exist_ok=True)
+            except Exception:
+                pass
+            try:
+                out_path = filedialog.asksaveasfilename(
+                    title='保存录制文件',
+                    initialdir=self.json_dir if os.path.isdir(self.json_dir) else self.base_dir,
+                    initialfile=f'{map_name}.json',
+                    defaultextension='.json',
+                    filetypes=[('JSON 文件', '*.json'), ('所有文件', '*.*')]
+                )
+            except Exception:
+                out_path = ''
+            if not out_path:
+                self._log('已取消保存')
+                return
+            self.selected_save_path = out_path
+            self.selected_save_disp.set(out_path)
         data = {
             'name': map_name,
             'steps': self.records,
