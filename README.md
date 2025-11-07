@@ -2,19 +2,20 @@
 
 ⚠️ 本脚本基于 pywin32 调用 Windows API 执行截图与输入操作，无内存注入等高危操作！⚠️ 
 
-~~偶遇超级技术难题拼尽全力无法解决，无尽模式伦次结束后的“撤离”与“再次挑战”按键无法通过sendmessge或postmessge点击，此二个按键可能是隐藏的子弹窗或子控键，按钮的点击处理可能只在特定层级/特定控件上生效，或者控件依赖前置焦点/捕获/前台链路，通过ChildWindowFromPointEx递归子链也无法输入点击，如有解决方案可以发送至1484413790@qq.com，万分感谢~~
-
-上述问题已解决，通过CHELItest.py中的find_deepest_child_at_screen_point方法，使用win32gui.ChildWindowFromPointEx遍历最深子控键，就可以找到“撤离”与“再次挑战”的真实位置并输入信号，可喜可贺！！
-
 ![脚本窗口示例图片](Guiexample.png)
+
 # 环境准备
 ```powershell
 # 安装所需依赖库
 pip install -r requirements.txt
 运行脚本
-powershell
+
 # 启动主程序
 python main.py
+
+# 使用pyinstaller打包脚本主程序
+pip install pyinstaller
+py -m PyInstaller "C:\Users\chinese\Desktop\55MOD\mainGuiRe.py" -F -w --name "55MOD" --collect-submodules logic --collect-data ttkbootstrap --distpath "C:\Users\chinese\Desktop\55MOD\dist" --workpath "C:\Users\chinese\Desktop\55MOD\build" --specpath "C:\Users\chinese\Desktop\55MOD"
 ```
 
 ```markdown
