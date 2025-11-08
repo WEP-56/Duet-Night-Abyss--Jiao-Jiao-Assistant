@@ -1094,7 +1094,7 @@ class App:
         try:
             self._log(f"🔧 [自检] base_dir={self.base_dir}")
             self._log(f"📁 [自检] control={self.control_dir} 存在={os.path.isdir(self.control_dir)}")
-            for fn in ['xuanzemihan.png', 'bushiyong.png', 'querenxuanze.png', 'likai.png', 'zaicijinixng.png']:
+            for fn in ['xuanzemihan.png', 'bushiyong.png', 'querenxuanze.png', 'likai.png', 'zaicijinxing.png']:
                 p = os.path.join(self.control_dir, fn)
                 self._log(f"🖼️ [自检] 模板 {fn}: {'存在' if os.path.isfile(p) else '缺失'} | {p}")
         except Exception:
